@@ -1,1 +1,1 @@
-a basic csv parser
+a basic csv linter
