@@ -3,6 +3,7 @@ name = "jdx-csv-lint"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "validates csv files"
 
 [dependencies]
 csv = "1.3.0"
