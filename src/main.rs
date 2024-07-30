@@ -1,13 +1,14 @@
-use std::{error::Error, io, process};
+use clap::Parser;
 use std::fs::File;
 use std::path::PathBuf;
-use clap::Parser;
+use std::{error::Error, io, process};
 use xx::regex;
 
 #[derive(Parser, Default)]
 #[command(version, about)]
 struct Cli {
-    file: PathBuf,
+    #[clap(required = true, number_of_values = 1)]
+    files: Vec<PathBuf>,
     #[clap(long)]
     show_all: bool,
 }
@@ -24,8 +25,12 @@ fn main() {
 
 impl Cli {
     fn run(&self) -> Result<()> {
-        let file = File::open(&self.file)?;
-        self.lint(file)
+        for filename in &self.files {
+            let file = File::open(&filename)?;
+            self.lint(file)?;
+            println!("[jdx-csv-lint] {} is valid", filename.display());
+        }
+        Ok(())
     }
 
     fn lint<R: io::Read>(&self, rdr: R) -> Result<()> {
@@ -40,19 +45,22 @@ impl Cli {
             }
             validate_email(&email_headers, &record)?;
         }
-        println!("CSV file is valid");
         Ok(())
     }
 }
 
 fn get_header_indices(csv_headers: &csv::StringRecord, names: &[&str]) -> Vec<usize> {
-    csv_headers.iter().enumerate().filter_map(|(i, h)| {
-        if names.iter().any(|&name| h.eq_ignore_ascii_case(name)) {
-            Some(i)
-        } else {
-            None
-        }
-    }).collect()
+    csv_headers
+        .iter()
+        .enumerate()
+        .filter_map(|(i, h)| {
+            if names.iter().any(|&name| h.eq_ignore_ascii_case(name)) {
+                Some(i)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn validate_email(email_headers: &Vec<usize>, record: &csv::StringRecord) -> Result<()> {
@@ -61,7 +69,8 @@ fn validate_email(email_headers: &Vec<usize>, record: &csv::StringRecord) -> Res
         if email.is_empty() {
             continue;
         }
-        regex!("^[^@]+@[^@]+$").find(email).ok_or_else(|| {
+        // https://emailregex.com
+        regex!(r#"(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])"#).find(email).ok_or_else(|| {
             format!("Invalid email address: {}", email)
         })?;
     }
