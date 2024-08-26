@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use itertools::Itertools;
 use log::{debug, error};
-
+use rayon::prelude::*;
 use crate::checks::Check;
 use crate::lint_error::LintError;
 use crate::Result;
@@ -12,28 +12,35 @@ use crate::Result;
 pub struct Linter {
     pub filename: PathBuf,
     pub show_all: bool,
+    pub delimiter: Option<String>,
+    pub escape: Option<String>,
     pub checks: Vec<&'static str>,
     pub errors: Vec<LintError>,
 
     headers: csv::StringRecord,
-    line: u64,
     header_checks: Vec<Vec<&'static str>>,
 }
 
 impl Linter {
     pub fn run<R: io::Read>(&mut self, rdr: R) -> Result<()> {
-        let mut rdr = csv::Reader::from_reader(rdr);
+        let mut rb = csv::ReaderBuilder::default();
+        if let Some(delimiter) = &self.delimiter {
+            rb.delimiter(delimiter.as_bytes()[0]);
+        }
+        if let Some(escape) = &self.escape {
+            rb.escape(Some(escape.as_bytes()[0]));
+        }
+        let mut rdr = rb.from_reader(rdr);
         self.headers = rdr.headers()?.clone();
         self.header_checks = self.init_header_checks();
-        self.line += 1;
-        for result in rdr.records() {
-            self.line += 1;
+        for (line, result) in rdr.into_records().enumerate() {
+            let line = line + 1;
             let err = match result {
                 Ok(record) => {
-                    if let Err(err) = self.lint_record(&record) {
+                    if let Err(err) = self.lint_record(line, &record) {
                         Some(LintError::Check {
                             filename: self.filename.clone(),
-                            line: self.line,
+                            line,
                             record: display_record(&record),
                             message: err.to_string(),
                         })
@@ -65,10 +72,10 @@ impl Linter {
             .collect()
     }
 
-    fn lint_record(&mut self, record: &csv::StringRecord) -> Result<()> {
-        debug!("{}", self.display_record(record));
+    fn lint_record(&mut self, line: usize, record: &csv::StringRecord) -> Result<()> {
+        debug!("{}", self.display_record(line, record));
         if self.show_all {
-            println!("{}", self.display_record(record));
+            println!("{}", self.display_record(line, record));
         }
         for (i, check_keys) in self.header_checks.iter().enumerate() {
             for check_key in check_keys {
@@ -80,10 +87,10 @@ impl Linter {
         Ok(())
     }
 
-    fn display_record(&self, record: &csv::StringRecord) -> String {
+    fn display_record(&self, line: usize, record: &csv::StringRecord) -> String {
         format!("{filename}[{line}]: {record}",
                 filename = self.filename.display(),
-                line = self.line,
+                line = line,
                 record = display_record(record),
         )
     }

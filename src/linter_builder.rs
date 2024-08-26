@@ -11,6 +11,8 @@ pub struct LinterBuilder {
     pub filename: PathBuf,
     pub show_all: bool,
     pub checks: Vec<String>,
+    pub delimiter: Option<String>,
+    pub escape: Option<String>,
 }
 
 impl LinterBuilder {
@@ -18,6 +20,8 @@ impl LinterBuilder {
         let mut linter = Linter::default();
         linter.filename = self.filename;
         linter.show_all = self.show_all;
+        linter.delimiter = self.delimiter;
+        linter.escape = self.escape;
         let checks = Check::list_keys().into_iter().collect::<HashSet<&str>>();
         for check in self.checks {
             match checks.get(check.as_str()) {
@@ -49,6 +53,8 @@ impl LinterBuilder {
             } else {
                 cli.checks.clone()
             },
+            delimiter: cli.delimiter.clone(),
+            escape: cli.escape.clone(),
         }
     }
 }

@@ -8,7 +8,7 @@ pub enum LintError {
     #[error("Parse error: {filename}[{line}]: ({record}) {message}")]
     Check {
         filename: PathBuf,
-        line: u64,
+        line: usize,
         record: String,
         message: String,
     },

@@ -25,6 +25,14 @@ pub(crate) struct Cli {
     /// The checks to enable
     #[clap(short, long, conflicts_with = "check_all")]
     pub(crate) checks: Vec<String>,
+    
+    /// The delimiter to use
+    #[clap(short, long)]
+    pub(crate) delimiter: Option<String>,
+    
+    /// The escape character to use
+    #[clap(short, long)]
+    pub(crate) escape: Option<String>,
 }
 
 impl Cli {
